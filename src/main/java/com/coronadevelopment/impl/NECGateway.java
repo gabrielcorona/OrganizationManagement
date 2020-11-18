@@ -70,7 +70,11 @@ public class NECGateway extends AbstractGateway {
 
     private void sendInitConfig() {
     	necExecutor.setConfiguration();
-    	necExecutor.setActiveAntennas(getAntenas());
+    	try {
+    		necExecutor.setActiveAntennas(getAntenas());
+    	} catch(Exception e) {
+    		log.error("Error trying to set antennas.", e);
+    	}
     	necExecutor.addRoSpec();
     }
 
@@ -132,12 +136,9 @@ public class NECGateway extends AbstractGateway {
         this.attachKeyIndex.put(cmd.toString(), arg);
 
         if (cmd != null) {
-            if (cmd.toString().startsWith(CSLCodeReference.UDP_CONNECTION.getCode())) {
-                sendUDP(cmd.toString());
-                this.saveGatewayLog(cmd.toString(), null);
-            } else {
-                this.executor.sendCmd(cmd);
-            }
+           
+//           this.necnecExecutor.sendCmd(cmd);
+           
         } else {
             log.warn("Failed to execute command: " + cmd);
         }
@@ -169,12 +170,9 @@ public class NECGateway extends AbstractGateway {
      */
     class MonitorThd extends Thread {
         private boolean isStop;
-        private IoSession sessionT;
-        private IoSession sessionU;
 
-        public MonitorThd(IoSession st, IoSession su) {
-            sessionT = st;
-            sessionU = su;
+        public MonitorThd() {
+        	
         }
 
         @Override
@@ -211,26 +209,12 @@ public class NECGateway extends AbstractGateway {
     @Override
     public void destroy() {
         try {
-            if (executor != null) {
-                executor.stop();
+            if (necExecutor != null) {
+                necExecutor.stopExecutor();
             }
-            if (this.session != null) {
-                this.session.close(false);
-            }
-            if (connector != null) {
-                connector.dispose();
-            }
-            if (acceptorUDP != null) {
-                acceptorUDP.dispose();
-            }
-            if (connectorUDP != null) {
-                connectorUDP.dispose();
-            }
-            if (executor != null) {
-                executor.stop();
-            }
-            if (NECHandler != null) {
-                NECHandler.stop();
+            
+            if (necHandler != null) {
+                necHandler.stop();
             }
 
             try {

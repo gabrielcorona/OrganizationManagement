@@ -19,20 +19,20 @@ public class NECHandler extends IoHandlerAdapter {
      */
 
     private SendTagThread sendTagThread;
-    private NECExecutor executor;
+    private NECExecutor necExecutor;
     private ConcurrentHashMap<String, ConcurrentHashMap<String, String>> antennaTagMaps;
 
     private int millis;
-    public long lastUpdate;
+    public static long lastUpdate;
 
-    public NECHandler(NECExecutor executor) {
-        this.executor = executor;
+    public NECHandler(NECExecutor necExecutor) {
+        this.necExecutor = necExecutor;
         antennaTagMaps = new ConcurrentHashMap<>();
 
         try {
 
-            millis = Integer.valueOf(executor.server.getGatewayInfo().getJsonConfMap().get("TAG_REFRESH_TIME_LAG").getValue().toString());
-            String[] antennas = executor.server.getGatewayInfo().getJsonConfMap().get("NEC_ANTENNA_PORT_LIST").getValue().toString().split(",");
+            millis = Integer.valueOf(necExecutor.server.getGatewayInfo().getJsonConfMap().get("TAG_REFRESH_TIME_LAG").getValue().toString());
+            String[] antennas = necExecutor.server.getGatewayInfo().getJsonConfMap().get("NEC_ANTENNA_PORT_LIST").getValue().toString().split(",");
 
             for (String port : antennas) {
                 antennaTagMaps.put(port, new ConcurrentHashMap<String, String>());
@@ -76,7 +76,9 @@ public class NECHandler extends IoHandlerAdapter {
         public void run() {
             while (!isStop()) {
                 try {
-                    sleep(millis);
+                	necExecutor.startInventory();
+                    sleep(millis);                    
+                    necExecutor.stopInventory();
                     processMsg();
                 } catch (InterruptedException e) {
                 }
@@ -95,16 +97,20 @@ public class NECHandler extends IoHandlerAdapter {
 
     private void processMsg() {
 
-        for (String antennaID : antennaTagMaps.keySet()) {
-            String rtn = TAG_RETURN_PATTERN + antennaID + ";";
-            ConcurrentHashMap<String, String> antennaTagMap = antennaTagMaps.get(antennaID);
-            for (String key : antennaTagMap.keySet()) {
-                rtn += key + ";";
-            }
-
-            this.executor.messageReceived(rtn);
-            antennaTagMap.clear();
-        }
+    	for(Object message:necExecutor.getMsgQueue()) {
+    		// Processing received messages
+    		log.debug("Received Message:"+(String)message);
+    	}
+//        for (String antennaID : antennaTagMaps.keySet()) {
+//            String rtn = TAG_RETURN_PATTERN + antennaID + ";";
+//            ConcurrentHashMap<String, String> antennaTagMap = antennaTagMaps.get(antennaID);
+//            for (String key : antennaTagMap.keySet()) {
+//                rtn += key + ";";
+//            }
+//
+//            this.necExecutor.messageReceived(rtn);
+//            antennaTagMap.clear();
+//        }
     }
 
 

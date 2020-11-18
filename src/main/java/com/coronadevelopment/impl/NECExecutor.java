@@ -27,20 +27,18 @@ import org.llrp.ltk.util.Util;
 import lombok.extern.log4j.Log4j2;
 
 @Log4j2
-public class NECExecutor implements LLRPEndpoint { 
-	private LLRPConnection connection;
-    public NECGateway server;
+public class NECExecutor implements LLRPEndpoint {
+	public NECGateway server;
+	private LLRPConnection connection;    
     private String[] activeAntennas;
+    private ROSpec rospec;
+    private Integer MessageID = 230; // a random starting point
 
     private BlockingQueue<Object> msgQueue = new LinkedBlockingDeque<>();
 
-    public NECExecutor(NECGateway server) {
+	public NECExecutor(NECGateway server) {
         this.server = server;
     }
-    
-    private LLRPConnection connection;
-    private ROSpec rospec;
-    private int MessageID = 230; // a random starting point
 
 	private UnsignedInteger getUniqueMessageID() {
 	    return new UnsignedInteger(MessageID++);
@@ -215,8 +213,6 @@ public class NECExecutor implements LLRPEndpoint {
 	        else {
 	                log.error("ADD_ROSPEC failures");
 	        }
-	    } catch (InvalidLLRPMessageException e) {
-	        log.error("Could not display response string",e);
 	    } catch (TimeoutException e) {
 	        log.error("Timeout waiting for ADD_ROSPEC response",e);
 	    }
@@ -249,7 +245,7 @@ public class NECExecutor implements LLRPEndpoint {
 	    }
 	}
 	
-	private void start() {
+	public void startInventory() {
 	    LLRPMessage response;
 	    try {
 	        log.info("START_ROSPEC ...");
@@ -275,7 +271,7 @@ public class NECExecutor implements LLRPEndpoint {
 	    }
 	}
 	
-	private void stop() {
+	public void stopInventory() {
 	    LLRPMessage response;
 	    try {
 	        log.info("STOP_ROSPEC ...");
@@ -360,6 +356,7 @@ public class NECExecutor implements LLRPEndpoint {
 	    }
 	
 	    log.debug(epcString);
+	    msgQueue.add(epcString);
 	}
 	
 	// messageReceived method is called whenever a message is received
@@ -368,15 +365,14 @@ public class NECExecutor implements LLRPEndpoint {
 	    // convert all messages received to LTK-XML representation
 	    // and print them to the console
 	
-	    log.debug("Received " + message.getName() + " message asychronously");
+	    log.debug("NEC Reader: Received " + message.getName() + " message asychronously");
 	
 	    if (message.getTypeNum() == RO_ACCESS_REPORT.TYPENUM) {
 	        RO_ACCESS_REPORT report = (RO_ACCESS_REPORT) message;
 	        try {
-				System.out.println(report.toBinaryString()+"");
+				log.debug("NEC Reader: Trying..."+report.toBinaryString());
 			} catch (InvalidLLRPMessageException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				log.error("NEC Reader: Invalid LLRP Message",e);
 			}
 	        List<TagReportData> tdlist = report.getTagReportDataList();
 	
@@ -384,7 +380,7 @@ public class NECExecutor implements LLRPEndpoint {
 	            logOneTagReport(tr);
 	        }
 	    } else if (message.getTypeNum() == READER_EVENT_NOTIFICATION.TYPENUM) {
-	        // TODO 
+	        log.debug("NEC Reader: This doesn't look lika a report");
 	    }
 	}
 
@@ -399,6 +395,19 @@ public class NECExecutor implements LLRPEndpoint {
 	public void setActiveAntennas(String[] activeAntennas) {
 		this.activeAntennas = activeAntennas;
 	}
+	
+	public BlockingQueue<Object> getMsgQueue() {
+		return msgQueue;
+	}
     
+	public void startExecutor() {
+		this.startInventory();
+    }
+	
+	public void stopExecutor() {
+        this.stopInventory();
+        this.disconnect();
+        msgQueue.clear();
+    }
     
 }
